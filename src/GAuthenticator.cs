@@ -9,115 +9,29 @@ namespace GoogleAuthentication
 {
     public class GAuthenticator
     {
-        private int _secondsToGo;
+        public string Identity { get; internal set; }
+        public string Issuer { get; internal set; }
+        public byte[] Secret { get; internal set; }
 
-        public int SecondsToGo
-        {
-            get { return _secondsToGo; }
-            private set { _secondsToGo = value; if (SecondsToGo == 30) CalculateOneTimePassword(); }
-        }
-
-        private string _identity;
-
-        public string Identity
-        {
-            get { return _identity; }
-            set { _identity = value; CalculateOneTimePassword(); }
-        }
-
-        private string _issuer;
-
-        public string Issuer
-        {
-            get { return _issuer; }
-            set { _issuer = value; }
-        }
-
-        private int _qrcodesize = 200;
-
-        public int QRCodeSize
-        {
-            get { return _qrcodesize; }
-            set { _qrcodesize = value; }
-        }
-
-        private byte[] _secret;
-
-        public byte[] Secret
-        {
-            get { return _secret; }
-            set { _secret = value; CalculateOneTimePassword(); }
-        }
-
-        public string QRCodeUrl
-        {
-            get { return GetQRCodeUrl(); }
-        }
-
-        private Int64 _timestamp;
-
-        public Int64 Timestamp
-        {
-            get { return _timestamp; }
-            private set { _timestamp = value; }
-        }
-
-        private byte[] _hmac;
-
-        public byte[] Hmac
-        {
-            get { return _hmac; }
-            private set { _hmac = value; }
-        }
-
-        public byte[] HmacPart1
-        {
-            get { return _hmac.Take(Offset).ToArray(); }
-        }
-
-        public byte[] HmacPart2
-        {
-            get { return _hmac.Skip(Offset).Take(4).ToArray(); }
-        }
-
-        public byte[] HmacPart3
-        {
-            get { return _hmac.Skip(Offset + 4).ToArray(); }
-        }
-
-        private int _offset;
-
-        public int Offset
-        {
-            get { return _offset; }
-            private set { _offset = value; }
-        }
-
-        private int _oneTimePassword;
+        public Int64 Timestamp { get; set; }
+        public int Offset { get; set; }
+        public byte[] Hmac { get; set; }
+        public byte[] HmacPart1 { get => Hmac.Take(Offset).ToArray(); }
+        public byte[] HmacPart2 { get => Hmac.Skip(Offset).Take(4).ToArray(); }
+        public byte[] HmacPart3 { get => Hmac.Skip(Offset + 4).ToArray(); }
 
         public int OneTimePassword
         {
-            get { return _oneTimePassword; }
-            set { _oneTimePassword = value; }
-        }
-
-        private string GetQRCodeUrl()
-        {
-            // https://code.google.com/p/google-authenticator/wiki/KeyUriFormat
-            var base32Secret = Base32.Encode(Secret);
-            return string.Format("http://chart.apis.google.com/chart?chs={0}x{0}&cht=qr&chl=otpauth://totp/{1}%3Fsecret%3D{2}{3}", QRCodeSize, Identity, base32Secret, (string.IsNullOrEmpty(Issuer) ? string.Empty : string.Format("%26issuer%3D{0}", Issuer)));
-        }
-
-        private void CalculateOneTimePassword()
-        {
-            if (_secret != null && _secret.Length > 0)
+            get
             {
-                // https://tools.ietf.org/html/rfc4226
+                if (Secret == null || Secret.Length == 0) return 0;
+
+                // REFERENCE: https://tools.ietf.org/html/rfc4226
                 Timestamp = Convert.ToInt64(GetUnixTimestamp() / 30);
                 var data = BitConverter.GetBytes(Timestamp).Reverse().ToArray();
                 Hmac = new HMACSHA1(Secret).ComputeHash(data);
                 Offset = Hmac.Last() & 0x0F;
-                OneTimePassword = (
+                return (
                     ((Hmac[Offset + 0] & 0x7f) << 24) |
                     ((Hmac[Offset + 1] & 0xff) << 16) |
                     ((Hmac[Offset + 2] & 0xff) << 8) |
@@ -126,14 +40,32 @@ namespace GoogleAuthentication
             }
         }
 
+        public string QRCodeUrl 
+        { 
+            get
+            {
+                var base32Secret = Base32.Encode(Secret);
+                var _issuer = (string.IsNullOrEmpty(Issuer) ? string.Empty : string.Format("%26issuer%3D{0}", Issuer));
+                return $"https://chart.apis.google.com/chart?chs=200x200&cht=qr&chl=otpauth://totp/{Identity}%3Fsecret%3D{base32Secret}{_issuer}";
+            }
+        }
+
         private static Int64 GetUnixTimestamp()
         {
             return Convert.ToInt64(Math.Round((DateTime.UtcNow - new DateTime(1970, 1, 1, 0, 0, 0)).TotalSeconds));
         }
 
-        public void setSecretKey(string secretKey)
+        public GAuthenticator(string identity, string issuer, string secret)
         {
-            Secret = new System.Text.ASCIIEncoding().GetBytes(secretKey);
+            Identity = identity;
+            Issuer = issuer;
+            Secret = new System.Text.ASCIIEncoding().GetBytes(secret);
+        }
+
+        public GAuthenticator(string identity, byte[] secret)
+        {
+            Identity = identity;
+            Secret = secret;
         }
     }
 

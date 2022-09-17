@@ -15,33 +15,24 @@ namespace GoogleAuthentication
         
         protected void btnSalvar_Click(object sender, EventArgs e)
         {
-            if (txtIdentity.Text.Length > 0)
+            if (!string.IsNullOrWhiteSpace(txtIdentity.Text))
             {
-                string secret = txtSecret.Text;
-                string identity = txtIdentity.Text;
+                var secret = txtSecret.Text;
+                var identity = txtIdentity.Text;
 
-                GAuthenticator gauth = new GAuthenticator();
-                gauth.QRCodeSize = 200;
-                gauth.Identity = identity;
-                gauth.Issuer = "www.csharpbrasil.com.br";
-                gauth.setSecretKey(secret);
-
+                var gauth = new GAuthenticator(identity, "csharpbrasil.com.br", secret);
                 imgQRCode.ImageUrl = gauth.QRCodeUrl;
                 imgQRCode.DataBind();
 
                 Panel1.Visible = true;
+
+                Session.Add("SecretByte", gauth.Secret);
+                Session.Add("Identity", identity);
             }
         }
 
         protected void btnTestar_Click(object sender, EventArgs e)
         {
-            string secret = txtSecret.Text;
-            string identity = txtIdentity.Text;
-            byte[] secretByte = new System.Text.ASCIIEncoding().GetBytes(secret);
-
-            Session.Add("Secret", secret);
-            Session.Add("SecretByte", secretByte);
-            Session.Add("Identity", identity);
             Response.Redirect("auth.aspx");
         }
     }
